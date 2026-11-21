@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Movement mechanics</title>
+  <style>
+    html, body { width: 100%; height: 100%; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #426447;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="arena" aria-label="Speelveld"></canvas>
+  <script>
+    "use strict";
+
+    const canvas = document.querySelector("#arena");
+    const ctx = canvas.getContext("2d");
+    const keys = new Set();
+    const player = { x: 450, y: 280, radius: 18, speed: 240, vx: 0, vy: 0, facing: 0 };
+    const world = { width: 0, height: 0 };
+    let previousTime = 0;
+
+    function resize() {
+      const scale = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(window.innerWidth * scale);
+      canvas.height = Math.floor(window.innerHeight * scale);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      world.width = window.innerWidth;
+      world.height = window.innerHeight;
+      player.x = Math.max(player.radius, Math.min(world.width - player.radius, player.x));
+      player.y = Math.max(player.radius, Math.min(world.height - player.radius, player.y));
+    }
+
+    function update(dt) {
+      let dx = Number(keys.has("d")) - Number(keys.has("q"));
+      let dy = Number(keys.has("s")) - Number(keys.has("z"));
+      const inputLength = Math.hypot(dx, dy);
+      if (inputLength > 1) {
+        dx /= inputLength;
+        dy /= inputLength;
+      }
+
+      const response = 1 - Math.exp(-(inputLength > 0 ? 14 : 18) * dt);
+      player.vx += (dx * player.speed - player.vx) * response;
+      player.vy += (dy * player.speed - player.vy) * response;
+      player.x += player.vx * dt;
+      player.y += player.vy * dt;
+
+      const minX = player.radius;
+      const maxX = world.width - player.radius;
+      const minY = player.radius;
+      const maxY = world.height - player.radius;
+      if (player.x < minX || player.x > maxX) player.vx = 0;
+      if (player.y < minY || player.y > maxY) player.vy = 0;
+      player.x = Math.max(minX, Math.min(maxX, player.x));
+      player.y = Math.max(minY, Math.min(maxY, player.y));
+
+      if (inputLength > 0) player.facing = Math.atan2(dy, dx);
+    }
+
+    function draw() {
+      ctx.fillStyle = "#426447";
+      ctx.fillRect(0, 0, world.width, world.height);
+
+      ctx.fillStyle = "#ffffff0c";
+      for (let y = 0; y < world.height; y += 40) {
+        for (let x = 0; x < world.width; x += 40) {
+          if ((x + y) % 80 === 0) ctx.fillRect(x, y, 40, 40);
+        }
+      }
+
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.rotate(player.facing);
+      ctx.fillStyle = "#79d8f2";
+      ctx.beginPath();
+      ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#203a5d";
+      ctx.fillRect(4, -5, player.radius + 5, 10);
+      ctx.restore();
+    }
+
+    function frame(timestamp) {
+      const dt = Math.min((timestamp - (previousTime || timestamp)) / 1000, .04);
+      previousTime = timestamp;
+      update(dt);
+      draw();
+      requestAnimationFrame(frame);
+    }
+
+    window.addEventListener("keydown", (event) => {
+      const key = event.key.toLowerCase();
+      if (["z", "q", "s", "d"].includes(key)) event.preventDefault();
+      keys.add(key);
+    });
+    window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
+    window.addEventListener("blur", () => keys.clear());
+    window.addEventListener("resize", resize);
+
+    resize();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
